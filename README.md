@@ -39,7 +39,8 @@
 - **Thinking 模式**: 支持 Claude 的 extended thinking 功能
 - **工具调用**: 完整支持 function calling / tool use
 - **WebSearch**: 内置 WebSearch 工具转换逻辑
-- **多模型支持**: 支持 Sonnet、Opus、Haiku 系列模型
+- **多模型支持**: 支持 Sonnet 4.5/4.6、Opus 4.5/4.6、Haiku 4.5 系列模型
+- **模型名映射**: 支持通过配置文件自定义响应中的模型名
 - **Admin 管理**: 可选的 Web 管理界面和 API，支持凭据管理、余额查询等
 - **多级 Region 配置**: 支持全局和凭据级别的 Auth Region / API Region 配置
 - **凭据级代理**: 支持为每个凭据单独配置 HTTP/SOCKS5 代理，优先级：凭据代理 > 全局代理 > 无代理
@@ -65,6 +66,7 @@
   - [Thinking 模式](#thinking-模式)
   - [工具调用](#工具调用)
 - [模型映射](#模型映射)
+- [模型名映射（响应体）](#模型名映射响应体)
 - [Admin（可选）](#admin可选)
 - [注意事项](#注意事项)
 - [项目结构](#项目结构)
@@ -144,7 +146,7 @@ curl http://127.0.0.1:8990/v1/messages \
   -H "Content-Type: application/json" \
   -H "x-api-key: sk-kiro-rs-qazWSXedcRFV123456" \
   -d '{
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-sonnet-4-6",
     "max_tokens": 1024,
     "stream": true,
     "messages": [
@@ -175,7 +177,7 @@ docker-compose up
 | `region` | string | `us-east-1` | AWS 区域 |
 | `authRegion` | string | - | Auth Region（用于 Token 刷新），未配置时回退到 region |
 | `apiRegion` | string | - | API Region（用于 API 请求），未配置时回退到 region |
-| `kiroVersion` | string | `0.9.2` | Kiro 版本号 |
+| `kiroVersion` | string | `0.10.0` | Kiro 版本号 |
 | `machineId` | string | - | 自定义机器码（64位十六进制），不定义则自动生成 |
 | `systemVersion` | string | 随机 | 系统版本标识 |
 | `nodeVersion` | string | `22.21.1` | Node.js 版本标识 |
@@ -188,6 +190,7 @@ docker-compose up
 | `proxyPassword` | string | - | 代理密码 |
 | `adminApiKey` | string | - | Admin API 密钥，配置后启用凭据管理 API 和 Web 管理界面 |
 | `loadBalancingMode` | string | `priority` | 负载均衡模式：`priority`（按优先级）或 `balanced`（均衡分配） |
+| `modelMapping` | object | - | 响应模型名映射（可选），将请求中的模型名映射为响应中返回的模型名 |
 
 完整配置示例：
 
@@ -198,7 +201,7 @@ docker-compose up
    "apiKey": "sk-kiro-rs-qazWSXedcRFV123456",
    "region": "us-east-1",
    "tlsBackend": "rustls",
-   "kiroVersion": "0.9.2",
+   "kiroVersion": "0.10.0",
    "machineId": "64位十六进制机器码",
    "systemVersion": "darwin#24.6.0",
    "nodeVersion": "22.21.1",
@@ -211,7 +214,11 @@ docker-compose up
    "proxyUsername": "user",
    "proxyPassword": "pass",
    "adminApiKey": "sk-admin-your-secret-key",
-   "loadBalancingMode": "priority"
+   "loadBalancingMode": "priority",
+   "modelMapping": {
+      "claude-sonnet-4-5-20250929": "claude-sonnet-4-5-20250929",
+      "claude-opus-4-6": "claude-opus-4-6"
+   }
 }
 ```
 
@@ -240,6 +247,7 @@ docker-compose up
 | `proxyUrl`     | string | 凭据级代理 URL（可选，特殊值 `direct` 表示不使用代理）       |
 | `proxyUsername`| string | 凭据级代理用户名（可选）                                |
 | `proxyPassword`| string | 凭据级代理密码（可选）                                 |
+| `disabled`     | bool   | 凭据是否被禁用（默认为 false，可通过 Admin API 管理）       |
 
 说明：
 - IdC / Builder-ID / IAM 在本项目里属于同一种登录方式，配置时统一使用 `authMethod: "idc"`
@@ -392,7 +400,7 @@ RUST_LOG=debug ./target/release/kiro-rs
 
 ```json
 {
-  "model": "claude-sonnet-4-20250514",
+  "model": "claude-sonnet-4-6",
   "max_tokens": 16000,
   "thinking": {
     "type": "enabled",
@@ -408,7 +416,7 @@ RUST_LOG=debug ./target/release/kiro-rs
 
 ```json
 {
-  "model": "claude-sonnet-4-20250514",
+  "model": "claude-sonnet-4-6",
   "max_tokens": 1024,
   "tools": [
     {
@@ -431,10 +439,28 @@ RUST_LOG=debug ./target/release/kiro-rs
 
 | Anthropic 模型 | Kiro 模型 |
 |----------------|-----------|
-| `*sonnet*` | `claude-sonnet-4.5` |
+| `*sonnet*`（含 4.6/4-6） | `claude-sonnet-4.6` |
+| `*sonnet*`（其他） | `claude-sonnet-4.5` |
 | `*opus*`（含 4.5/4-5） | `claude-opus-4.5` |
 | `*opus*`（其他） | `claude-opus-4.6` |
 | `*haiku*` | `claude-haiku-4.5` |
+
+## 模型名映射（响应体）
+
+通过 `config.json` 的 `modelMapping` 字段，可以将响应体中的模型名替换为自定义名称。这在需要对下游客户端伪装模型名时非常有用。
+
+```json
+{
+   "modelMapping": {
+      "claude-sonnet-4-6": "claude-sonnet-4-6-20260101",
+      "claude-opus-4-6": "my-custom-opus"
+   }
+}
+```
+
+配置后，当请求中使用 `claude-sonnet-4-6` 时，响应中的 `model` 字段将返回 `claude-sonnet-4-6-20260101`。
+
+> 该映射同时作用于流式、非流式和 WebSearch 响应。
 
 ## Admin（可选）
 
@@ -448,6 +474,8 @@ RUST_LOG=debug ./target/release/kiro-rs
   - `POST /api/admin/credentials/:id/priority` - 设置凭据优先级
   - `POST /api/admin/credentials/:id/reset` - 重置失败计数
   - `GET /api/admin/credentials/:id/balance` - 获取凭据余额
+  - `GET /api/admin/config/load-balancing` - 获取负载均衡模式
+  - `PUT /api/admin/config/load-balancing` - 设置负载均衡模式
 
 - **Admin UI**
   - `GET /admin` - 访问管理页面（需要在编译前构建 `admin-ui/dist`）
