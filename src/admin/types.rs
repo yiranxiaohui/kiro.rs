@@ -182,7 +182,7 @@ pub struct SetLoadBalancingModeRequest {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelMappingResponse {
-    /// 模型名映射表（原始模型名 -> 显示模型名）
+    /// 模型名映射表（客户端模型名 -> 后端模型名）
     pub mapping: std::collections::HashMap<String, String>,
 }
 
@@ -190,7 +190,7 @@ pub struct ModelMappingResponse {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetModelMappingRequest {
-    /// 模型名映射表（原始模型名 -> 显示模型名）
+    /// 模型名映射表（客户端模型名 -> 后端模型名）
     pub mapping: std::collections::HashMap<String, String>,
 }
 

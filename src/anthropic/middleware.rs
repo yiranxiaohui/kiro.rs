@@ -27,7 +27,7 @@ pub struct AppState {
     pub kiro_provider: Option<Arc<KiroProvider>>,
     /// Profile ARN（可选，用于请求）
     pub profile_arn: Option<String>,
-    /// 响应模型名映射（线程安全，支持动态修改）
+    /// 模型映射（线程安全，支持动态修改）：客户端模型名 -> 后端模型名
     pub model_mapping: Arc<RwLock<HashMap<String, String>>>,
 }
 
@@ -54,7 +54,7 @@ impl AppState {
         self
     }
 
-    /// 设置响应模型名映射
+    /// 设置模型映射
     pub fn with_model_mapping(mut self, mapping: Arc<RwLock<HashMap<String, String>>>) -> Self {
         self.model_mapping = mapping;
         self

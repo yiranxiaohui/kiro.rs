@@ -28,32 +28,19 @@ use super::stream::{BufferedStreamContext, SseEvent, StreamContext};
 use super::types::{CountTokensRequest, CountTokensResponse, ErrorResponse, MessagesRequest, Model, ModelsResponse, OutputConfig, Thinking};
 use super::websearch;
 
-/// 根据配置的模型名映射，解析响应中使用的模型名
-fn resolve_model_name(model: &str, mapping: &HashMap<String, String>) -> String {
-    mapping
-        .get(model)
-        .cloned()
-        .unwrap_or_else(|| model.to_string())
-}
-
-/// 反向映射：将客户端发送的映射后模型名还原为原始模型名
+/// 应用模型映射：将客户端请求的模型名替换为实际后端模型名
 ///
-/// 当 `/v1/models` 返回映射后的模型名时，客户端会用映射后的名字发送请求。
-/// 此函数将其还原为原始模型名，确保内部处理（模型转换、thinking 类型判断等）正确。
+/// 映射表语义：客户端模型名 → 后端模型名
 /// 同时处理 `-thinking` 后缀的变体。
-fn reverse_resolve_model_name(model: &str, mapping: &HashMap<String, String>) -> String {
-    // 直接反向查找
-    for (orig, mapped) in mapping {
-        if mapped == model {
-            return orig.clone();
-        }
+fn apply_model_mapping(model: &str, mapping: &HashMap<String, String>) -> String {
+    // 直接匹配
+    if let Some(mapped) = mapping.get(model) {
+        return mapped.clone();
     }
-    // -thinking 后缀反向查找
+    // -thinking 后缀匹配：去掉后缀查映射，再加回后缀
     if let Some(base) = model.strip_suffix("-thinking") {
-        for (orig, mapped) in mapping {
-            if mapped == base {
-                return format!("{}-thinking", orig);
-            }
+        if let Some(mapped) = mapping.get(base) {
+            return format!("{}-thinking", mapped);
         }
     }
     model.to_string()
@@ -102,10 +89,10 @@ fn map_provider_error(err: Error) -> Response {
 /// GET /v1/models
 ///
 /// 返回可用的模型列表
-pub async fn get_models(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn get_models(State(_state): State<AppState>) -> impl IntoResponse {
     tracing::info!("Received GET /v1/models request");
 
-    let mut models = vec![
+    let models = vec![
         Model {
             id: "claude-sonnet-4-5-20250929".to_string(),
             object: "model".to_string(),
@@ -198,43 +185,6 @@ pub async fn get_models(State(state): State<AppState>) -> impl IntoResponse {
         },
     ];
 
-    // 应用模型名映射：替换模型 ID 和 display_name
-    {
-        let mapping = state.model_mapping.read();
-        if !mapping.is_empty() {
-            // 先收集目标模型的 display_name，用于替换
-            let display_names: HashMap<String, String> = models
-                .iter()
-                .map(|m| (m.id.clone(), m.display_name.clone()))
-                .collect();
-
-            for model in &mut models {
-                // 直接匹配
-                if let Some(mapped) = mapping.get(&model.id) {
-                    if let Some(dn) = display_names.get(mapped) {
-                        model.display_name = dn.clone();
-                    }
-                    model.id = mapped.clone();
-                    continue;
-                }
-                // -thinking 后缀匹配
-                if let Some(base) = model.id.strip_suffix("-thinking") {
-                    if let Some(mapped) = mapping.get(base) {
-                        let mapped_thinking = format!("{}-thinking", mapped);
-                        if let Some(dn) = display_names.get(&mapped_thinking) {
-                            model.display_name = dn.clone();
-                        }
-                        model.id = mapped_thinking;
-                    }
-                }
-            }
-
-            // 去重：如果映射后出现重复 ID，保留第一个（映射产生的）
-            let mut seen = std::collections::HashSet::new();
-            models.retain(|m| seen.insert(m.id.clone()));
-        }
-    }
-
     Json(ModelsResponse {
         object: "list".to_string(),
         data: models,
@@ -274,14 +224,14 @@ pub async fn post_messages(
     // 获取模型映射（读锁，立即 clone 释放）
     let mapping = state.model_mapping.read().clone();
 
-    // 反向映射：将客户端发送的映射后模型名还原为原始模型名
-    // payload.model = reverse_resolve_model_name(&payload.model, &mapping);
+    // 保存客户端原始模型名，用于响应体
+    let response_model = payload.model.clone();
+
+    // 模型映射优先：将客户端请求的模型名替换为实际后端模型名
+    payload.model = apply_model_mapping(&payload.model, &mapping);
 
     // 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
     override_thinking_from_model_name(&mut payload);
-
-    // 解析响应中使用的模型名
-    let response_model = resolve_model_name(&payload.model, &mapping);
 
     // 释放读锁
     drop(mapping);
@@ -770,14 +720,14 @@ pub async fn post_messages_cc(
     // 获取模型映射（读锁，立即 clone 释放）
     let mapping = state.model_mapping.read().clone();
 
-    // 反向映射：将客户端发送的映射后模型名还原为原始模型名
-    payload.model = reverse_resolve_model_name(&payload.model, &mapping);
+    // 保存客户端原始模型名，用于响应体
+    let response_model = payload.model.clone();
+
+    // 模型映射优先：将客户端请求的模型名替换为实际后端模型名
+    payload.model = apply_model_mapping(&payload.model, &mapping);
 
     // 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
     override_thinking_from_model_name(&mut payload);
-
-    // 解析响应中使用的模型名
-    let response_model = resolve_model_name(&payload.model, &mapping);
 
     // 释放读锁
     drop(mapping);
