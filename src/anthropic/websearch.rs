@@ -471,6 +471,7 @@ pub async fn handle_websearch_request(
     provider: std::sync::Arc<crate::kiro::provider::KiroProvider>,
     payload: &MessagesRequest,
     input_tokens: i32,
+    response_model: &str,
 ) -> Response {
     // 1. 提取搜索查询
     let query = match extract_search_query(payload) {
@@ -502,7 +503,7 @@ pub async fn handle_websearch_request(
     };
 
     // 4. 生成 SSE 响应
-    let model = payload.model.clone();
+    let model = response_model.to_string();
     let stream =
         create_websearch_sse_stream(model, query, tool_use_id, search_results, input_tokens);
 

@@ -1,5 +1,6 @@
 //! Anthropic API 中间件
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{
@@ -25,6 +26,8 @@ pub struct AppState {
     pub kiro_provider: Option<Arc<KiroProvider>>,
     /// Profile ARN（可选，用于请求）
     pub profile_arn: Option<String>,
+    /// 响应模型名映射
+    pub model_mapping: Option<HashMap<String, String>>,
 }
 
 impl AppState {
@@ -34,6 +37,7 @@ impl AppState {
             api_key: api_key.into(),
             kiro_provider: None,
             profile_arn: None,
+            model_mapping: None,
         }
     }
 
@@ -46,6 +50,12 @@ impl AppState {
     /// 设置 Profile ARN
     pub fn with_profile_arn(mut self, arn: impl Into<String>) -> Self {
         self.profile_arn = Some(arn.into());
+        self
+    }
+
+    /// 设置响应模型名映射
+    pub fn with_model_mapping(mut self, mapping: HashMap<String, String>) -> Self {
+        self.model_mapping = Some(mapping);
         self
     }
 }

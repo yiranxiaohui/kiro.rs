@@ -1,5 +1,6 @@
 //! Anthropic API Handler 函数
 
+use std::collections::HashMap;
 use std::convert::Infallible;
 
 use anyhow::Error;
@@ -26,6 +27,15 @@ use super::middleware::AppState;
 use super::stream::{BufferedStreamContext, SseEvent, StreamContext};
 use super::types::{CountTokensRequest, CountTokensResponse, ErrorResponse, MessagesRequest, Model, ModelsResponse, OutputConfig, Thinking};
 use super::websearch;
+
+/// 根据配置的模型名映射，解析响应中使用的模型名
+fn resolve_model_name(model: &str, mapping: &Option<HashMap<String, String>>) -> String {
+    mapping
+        .as_ref()
+        .and_then(|m| m.get(model))
+        .cloned()
+        .unwrap_or_else(|| model.to_string())
+}
 
 /// 将 KiroProvider 错误映射为 HTTP 响应
 fn map_provider_error(err: Error) -> Response {
@@ -205,6 +215,9 @@ pub async fn post_messages(
     // 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
     override_thinking_from_model_name(&mut payload);
 
+    // 解析响应中使用的模型名
+    let response_model = resolve_model_name(&payload.model, &state.model_mapping);
+
     // 检查是否为 WebSearch 请求
     if websearch::has_web_search_tool(&payload) {
         tracing::info!("检测到 WebSearch 工具，路由到 WebSearch 处理");
@@ -217,7 +230,7 @@ pub async fn post_messages(
             payload.tools.clone(),
         ) as i32;
 
-        return websearch::handle_websearch_request(provider, &payload, input_tokens).await;
+        return websearch::handle_websearch_request(provider, &payload, input_tokens, &response_model).await;
     }
 
     // 转换请求
@@ -284,14 +297,14 @@ pub async fn post_messages(
         handle_stream_request(
             provider,
             &request_body,
-            &payload.model,
+            &response_model,
             input_tokens,
             thinking_enabled,
         )
         .await
     } else {
         // 非流式响应
-        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens).await
+        handle_non_stream_request(provider, &request_body, &response_model, input_tokens).await
     }
 }
 
@@ -689,6 +702,9 @@ pub async fn post_messages_cc(
     // 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
     override_thinking_from_model_name(&mut payload);
 
+    // 解析响应中使用的模型名
+    let response_model = resolve_model_name(&payload.model, &state.model_mapping);
+
     // 检查是否为 WebSearch 请求
     if websearch::has_web_search_tool(&payload) {
         tracing::info!("检测到 WebSearch 工具，路由到 WebSearch 处理");
@@ -701,7 +717,7 @@ pub async fn post_messages_cc(
             payload.tools.clone(),
         ) as i32;
 
-        return websearch::handle_websearch_request(provider, &payload, input_tokens).await;
+        return websearch::handle_websearch_request(provider, &payload, input_tokens, &response_model).await;
     }
 
     // 转换请求
@@ -768,14 +784,14 @@ pub async fn post_messages_cc(
         handle_stream_request_buffered(
             provider,
             &request_body,
-            &payload.model,
+            &response_model,
             input_tokens,
             thinking_enabled,
         )
         .await
     } else {
         // 非流式响应（复用现有逻辑，已经使用正确的 input_tokens）
-        handle_non_stream_request(provider, &request_body, &payload.model, input_tokens).await
+        handle_non_stream_request(provider, &request_body, &response_model, input_tokens).await
     }
 }
 
