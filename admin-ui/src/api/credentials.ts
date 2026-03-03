@@ -96,3 +96,15 @@ export async function setLoadBalancingMode(mode: 'priority' | 'balanced'): Promi
   const { data } = await api.put<{ mode: 'priority' | 'balanced' }>('/config/load-balancing', { mode })
   return data
 }
+
+// 获取模型映射
+export async function getModelMapping(): Promise<{ mapping: Record<string, string> }> {
+  const { data } = await api.get<{ mapping: Record<string, string> }>('/config/model-mapping')
+  return data
+}
+
+// 设置模型映射
+export async function setModelMapping(mapping: Record<string, string>): Promise<{ mapping: Record<string, string> }> {
+  const { data } = await api.put<{ mapping: Record<string, string> }>('/config/model-mapping', { mapping })
+  return data
+}

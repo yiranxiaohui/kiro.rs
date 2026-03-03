@@ -176,6 +176,24 @@ pub struct SetLoadBalancingModeRequest {
     pub mode: String,
 }
 
+// ============ 模型映射配置 ============
+
+/// 模型映射响应
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelMappingResponse {
+    /// 模型名映射表（原始模型名 -> 显示模型名）
+    pub mapping: std::collections::HashMap<String, String>,
+}
+
+/// 设置模型映射请求
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetModelMappingRequest {
+    /// 模型名映射表（原始模型名 -> 显示模型名）
+    pub mapping: std::collections::HashMap<String, String>,
+}
+
 // ============ 通用响应 ============
 
 /// 操作成功响应

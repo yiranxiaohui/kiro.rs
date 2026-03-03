@@ -9,6 +9,8 @@ import {
   deleteCredential,
   getLoadBalancingMode,
   setLoadBalancingMode,
+  getModelMapping,
+  setModelMapping,
 } from '@/api/credentials'
 import type { AddCredentialRequest } from '@/types/api'
 
@@ -103,6 +105,25 @@ export function useSetLoadBalancingMode() {
     mutationFn: setLoadBalancingMode,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['loadBalancingMode'] })
+    },
+  })
+}
+
+// 获取模型映射
+export function useModelMapping() {
+  return useQuery({
+    queryKey: ['modelMapping'],
+    queryFn: getModelMapping,
+  })
+}
+
+// 设置模型映射
+export function useSetModelMapping() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: setModelMapping,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['modelMapping'] })
     },
   })
 }

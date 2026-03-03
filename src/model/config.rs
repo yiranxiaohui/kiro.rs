@@ -1,6 +1,5 @@
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -91,12 +90,6 @@ pub struct Config {
     #[serde(default = "default_load_balancing_mode")]
     pub load_balancing_mode: String,
 
-    /// 响应模型名映射（可选）
-    /// 将请求中的模型名映射为响应中返回的模型名
-    #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model_mapping: Option<HashMap<String, String>>,
-
     /// 配置文件路径（运行时元数据，不写入 JSON）
     #[serde(skip)]
     config_path: Option<PathBuf>,
@@ -161,7 +154,6 @@ impl Default for Config {
             proxy_password: None,
             admin_api_key: None,
             load_balancing_mode: default_load_balancing_mode(),
-            model_mapping: None,
             config_path: None,
         }
     }

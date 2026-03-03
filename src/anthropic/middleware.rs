@@ -10,6 +10,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Json, Response},
 };
+use parking_lot::RwLock;
 
 use crate::common::auth;
 use crate::kiro::provider::KiroProvider;
@@ -26,8 +27,8 @@ pub struct AppState {
     pub kiro_provider: Option<Arc<KiroProvider>>,
     /// Profile ARN（可选，用于请求）
     pub profile_arn: Option<String>,
-    /// 响应模型名映射
-    pub model_mapping: Option<HashMap<String, String>>,
+    /// 响应模型名映射（线程安全，支持动态修改）
+    pub model_mapping: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl AppState {
@@ -37,7 +38,7 @@ impl AppState {
             api_key: api_key.into(),
             kiro_provider: None,
             profile_arn: None,
-            model_mapping: None,
+            model_mapping: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -54,8 +55,8 @@ impl AppState {
     }
 
     /// 设置响应模型名映射
-    pub fn with_model_mapping(mut self, mapping: HashMap<String, String>) -> Self {
-        self.model_mapping = Some(mapping);
+    pub fn with_model_mapping(mut self, mapping: Arc<RwLock<HashMap<String, String>>>) -> Self {
+        self.model_mapping = mapping;
         self
     }
 }

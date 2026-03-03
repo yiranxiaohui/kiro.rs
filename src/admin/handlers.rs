@@ -9,8 +9,8 @@ use axum::{
 use super::{
     middleware::AdminState,
     types::{
-        AddCredentialRequest, SetDisabledRequest, SetLoadBalancingModeRequest, SetPriorityRequest,
-        SuccessResponse,
+        AddCredentialRequest, ModelMappingResponse, SetDisabledRequest,
+        SetLoadBalancingModeRequest, SetModelMappingRequest, SetPriorityRequest, SuccessResponse,
     },
 };
 
@@ -123,4 +123,24 @@ pub async fn set_load_balancing_mode(
         Ok(response) => Json(response).into_response(),
         Err(e) => (e.status_code(), Json(e.into_response())).into_response(),
     }
+}
+
+/// GET /api/admin/config/model-mapping
+/// 获取模型名映射
+pub async fn get_model_mapping(State(state): State<AdminState>) -> impl IntoResponse {
+    let mapping = state.model_mapping.read().clone();
+    Json(ModelMappingResponse { mapping })
+}
+
+/// PUT /api/admin/config/model-mapping
+/// 设置模型名映射
+pub async fn set_model_mapping(
+    State(state): State<AdminState>,
+    Json(payload): Json<SetModelMappingRequest>,
+) -> impl IntoResponse {
+    *state.model_mapping.write() = payload.mapping.clone();
+    tracing::info!("模型映射已更新: {:?}", payload.mapping);
+    Json(ModelMappingResponse {
+        mapping: payload.mapping,
+    })
 }

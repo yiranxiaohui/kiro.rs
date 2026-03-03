@@ -29,10 +29,9 @@ use super::types::{CountTokensRequest, CountTokensResponse, ErrorResponse, Messa
 use super::websearch;
 
 /// 根据配置的模型名映射，解析响应中使用的模型名
-fn resolve_model_name(model: &str, mapping: &Option<HashMap<String, String>>) -> String {
+fn resolve_model_name(model: &str, mapping: &HashMap<String, String>) -> String {
     mapping
-        .as_ref()
-        .and_then(|m| m.get(model))
+        .get(model)
         .cloned()
         .unwrap_or_else(|| model.to_string())
 }
@@ -42,20 +41,18 @@ fn resolve_model_name(model: &str, mapping: &Option<HashMap<String, String>>) ->
 /// 当 `/v1/models` 返回映射后的模型名时，客户端会用映射后的名字发送请求。
 /// 此函数将其还原为原始模型名，确保内部处理（模型转换、thinking 类型判断等）正确。
 /// 同时处理 `-thinking` 后缀的变体。
-fn reverse_resolve_model_name(model: &str, mapping: &Option<HashMap<String, String>>) -> String {
-    if let Some(mapping) = mapping {
-        // 直接反向查找
-        for (orig, mapped) in mapping {
-            if mapped == model {
-                return orig.clone();
-            }
+fn reverse_resolve_model_name(model: &str, mapping: &HashMap<String, String>) -> String {
+    // 直接反向查找
+    for (orig, mapped) in mapping {
+        if mapped == model {
+            return orig.clone();
         }
-        // -thinking 后缀反向查找
-        if let Some(base) = model.strip_suffix("-thinking") {
-            for (orig, mapped) in mapping {
-                if mapped == base {
-                    return format!("{}-thinking", orig);
-                }
+    }
+    // -thinking 后缀反向查找
+    if let Some(base) = model.strip_suffix("-thinking") {
+        for (orig, mapped) in mapping {
+            if mapped == base {
+                return format!("{}-thinking", orig);
             }
         }
     }
@@ -202,37 +199,40 @@ pub async fn get_models(State(state): State<AppState>) -> impl IntoResponse {
     ];
 
     // 应用模型名映射：替换模型 ID 和 display_name
-    if let Some(mapping) = &state.model_mapping {
-        // 先收集目标模型的 display_name，用于替换
-        let display_names: HashMap<String, String> = models
-            .iter()
-            .map(|m| (m.id.clone(), m.display_name.clone()))
-            .collect();
+    {
+        let mapping = state.model_mapping.read();
+        if !mapping.is_empty() {
+            // 先收集目标模型的 display_name，用于替换
+            let display_names: HashMap<String, String> = models
+                .iter()
+                .map(|m| (m.id.clone(), m.display_name.clone()))
+                .collect();
 
-        for model in &mut models {
-            // 直接匹配
-            if let Some(mapped) = mapping.get(&model.id) {
-                if let Some(dn) = display_names.get(mapped) {
-                    model.display_name = dn.clone();
-                }
-                model.id = mapped.clone();
-                continue;
-            }
-            // -thinking 后缀匹配
-            if let Some(base) = model.id.strip_suffix("-thinking") {
-                if let Some(mapped) = mapping.get(base) {
-                    let mapped_thinking = format!("{}-thinking", mapped);
-                    if let Some(dn) = display_names.get(&mapped_thinking) {
+            for model in &mut models {
+                // 直接匹配
+                if let Some(mapped) = mapping.get(&model.id) {
+                    if let Some(dn) = display_names.get(mapped) {
                         model.display_name = dn.clone();
                     }
-                    model.id = mapped_thinking;
+                    model.id = mapped.clone();
+                    continue;
+                }
+                // -thinking 后缀匹配
+                if let Some(base) = model.id.strip_suffix("-thinking") {
+                    if let Some(mapped) = mapping.get(base) {
+                        let mapped_thinking = format!("{}-thinking", mapped);
+                        if let Some(dn) = display_names.get(&mapped_thinking) {
+                            model.display_name = dn.clone();
+                        }
+                        model.id = mapped_thinking;
+                    }
                 }
             }
-        }
 
-        // 去重：如果映射后出现重复 ID，保留第一个（映射产生的）
-        let mut seen = std::collections::HashSet::new();
-        models.retain(|m| seen.insert(m.id.clone()));
+            // 去重：如果映射后出现重复 ID，保留第一个（映射产生的）
+            let mut seen = std::collections::HashSet::new();
+            models.retain(|m| seen.insert(m.id.clone()));
+        }
     }
 
     Json(ModelsResponse {
@@ -271,14 +271,20 @@ pub async fn post_messages(
         }
     };
 
+    // 获取模型映射（读锁，立即 clone 释放）
+    let mapping = state.model_mapping.read().clone();
+
     // 反向映射：将客户端发送的映射后模型名还原为原始模型名
-    payload.model = reverse_resolve_model_name(&payload.model, &state.model_mapping);
+    // payload.model = reverse_resolve_model_name(&payload.model, &mapping);
 
     // 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
     override_thinking_from_model_name(&mut payload);
 
     // 解析响应中使用的模型名
-    let response_model = resolve_model_name(&payload.model, &state.model_mapping);
+    let response_model = resolve_model_name(&payload.model, &mapping);
+
+    // 释放读锁
+    drop(mapping);
 
     // 检查是否为 WebSearch 请求
     if websearch::has_web_search_tool(&payload) {
@@ -761,14 +767,20 @@ pub async fn post_messages_cc(
         }
     };
 
+    // 获取模型映射（读锁，立即 clone 释放）
+    let mapping = state.model_mapping.read().clone();
+
     // 反向映射：将客户端发送的映射后模型名还原为原始模型名
-    payload.model = reverse_resolve_model_name(&payload.model, &state.model_mapping);
+    payload.model = reverse_resolve_model_name(&payload.model, &mapping);
 
     // 检测模型名是否包含 "thinking" 后缀，若包含则覆写 thinking 配置
     override_thinking_from_model_name(&mut payload);
 
     // 解析响应中使用的模型名
-    let response_model = resolve_model_name(&payload.model, &state.model_mapping);
+    let response_model = resolve_model_name(&payload.model, &mapping);
+
+    // 释放读锁
+    drop(mapping);
 
     // 检查是否为 WebSearch 请求
     if websearch::has_web_search_tool(&payload) {

@@ -1,5 +1,6 @@
 //! Admin API 中间件
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::{
@@ -9,6 +10,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Json, Response},
 };
+use parking_lot::RwLock;
 
 use super::service::AdminService;
 use super::types::AdminErrorResponse;
@@ -21,13 +23,20 @@ pub struct AdminState {
     pub admin_api_key: String,
     /// Admin 服务
     pub service: Arc<AdminService>,
+    /// 模型名映射（与 Anthropic API 共享）
+    pub model_mapping: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl AdminState {
-    pub fn new(admin_api_key: impl Into<String>, service: AdminService) -> Self {
+    pub fn new(
+        admin_api_key: impl Into<String>,
+        service: AdminService,
+        model_mapping: Arc<RwLock<HashMap<String, String>>>,
+    ) -> Self {
         Self {
             admin_api_key: admin_api_key.into(),
             service: Arc::new(service),
+            model_mapping,
         }
     }
 }

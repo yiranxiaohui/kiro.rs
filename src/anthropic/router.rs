@@ -1,6 +1,7 @@
 //! Anthropic API 路由配置
 
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use axum::{
     Router,
@@ -8,6 +9,7 @@ use axum::{
     middleware,
     routing::{get, post},
 };
+use parking_lot::RwLock;
 
 use crate::kiro::provider::KiroProvider;
 
@@ -40,7 +42,7 @@ pub fn create_router_with_provider(
     api_key: impl Into<String>,
     kiro_provider: Option<KiroProvider>,
     profile_arn: Option<String>,
-    model_mapping: Option<HashMap<String, String>>,
+    model_mapping: Arc<RwLock<HashMap<String, String>>>,
 ) -> Router {
     let mut state = AppState::new(api_key);
     if let Some(provider) = kiro_provider {
@@ -49,9 +51,7 @@ pub fn create_router_with_provider(
     if let Some(arn) = profile_arn {
         state = state.with_profile_arn(arn);
     }
-    if let Some(mapping) = model_mapping {
-        state = state.with_model_mapping(mapping);
-    }
+    state = state.with_model_mapping(model_mapping);
 
     // 需要认证的 /v1 路由
     let v1_routes = Router::new()
