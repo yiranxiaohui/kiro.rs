@@ -140,6 +140,12 @@ pub async fn set_model_mapping(
 ) -> impl IntoResponse {
     *state.model_mapping.write() = payload.mapping.clone();
     tracing::info!("模型映射已更新: {:?}", payload.mapping);
+
+    // 持久化到 config.json（失败仅 warn，不影响运行时）
+    if let Err(e) = state.service.persist_model_mapping(&payload.mapping) {
+        tracing::warn!("模型映射持久化失败: {}", e);
+    }
+
     Json(ModelMappingResponse {
         mapping: payload.mapping,
     })

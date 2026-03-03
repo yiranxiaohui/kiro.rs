@@ -7,7 +7,6 @@ mod kiro;
 mod model;
 pub mod token;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use clap::Parser;
@@ -103,8 +102,11 @@ async fn main() {
         tls_backend: config.tls_backend,
     });
 
-    // 创建共享的模型映射（Admin API 和 Anthropic API 共享）
-    let model_mapping = Arc::new(RwLock::new(HashMap::<String, String>::new()));
+    // 创建共享的模型映射（Admin API 和 Anthropic API 共享，从配置文件加载）
+    let model_mapping = Arc::new(RwLock::new(config.model_mapping.clone()));
+    if !config.model_mapping.is_empty() {
+        tracing::info!("已从配置文件加载模型映射: {:?}", config.model_mapping);
+    }
 
     // 构建 Anthropic API 路由（从第一个凭据获取 profile_arn）
     let anthropic_app = anthropic::create_router_with_provider(

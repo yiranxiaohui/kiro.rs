@@ -272,6 +272,27 @@ impl AdminService {
         Ok(LoadBalancingModeResponse { mode: req.mode })
     }
 
+    /// 持久化模型映射到 config.json
+    pub fn persist_model_mapping(
+        &self,
+        mapping: &HashMap<String, String>,
+    ) -> anyhow::Result<()> {
+        let config_path = match self.token_manager.config().config_path() {
+            Some(path) => path.to_path_buf(),
+            None => {
+                tracing::warn!("配置文件路径未知，模型映射仅在当前进程生效");
+                return Ok(());
+            }
+        };
+
+        let mut config = crate::model::config::Config::load(&config_path)?;
+        config.model_mapping = mapping.clone();
+        config.save()?;
+
+        tracing::info!("模型映射已持久化到配置文件");
+        Ok(())
+    }
+
     // ============ 余额缓存持久化 ============
 
     fn load_balance_cache_from(cache_path: &Option<PathBuf>) -> HashMap<u64, CachedBalance> {
