@@ -6,6 +6,8 @@ services:
     container_name: kiro-rs
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    environment:
+      - TZ=America/New_York
     ports:
       - "8990:8990"
     volumes:
