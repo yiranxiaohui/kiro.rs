@@ -153,7 +153,7 @@ async fn main() {
         api_url: config.count_tokens_api_url.clone(),
         api_key: config.count_tokens_api_key.clone(),
         auth_type: config.count_tokens_auth_type.clone(),
-        proxy: proxy_config,
+        proxy: proxy_config.clone(),
         tls_backend: config.tls_backend,
     });
 
@@ -179,7 +179,12 @@ async fn main() {
         } else {
             let admin_service =
                 admin::AdminService::new(token_manager.clone(), endpoint_names.clone());
-            let admin_state = admin::AdminState::new(admin_key, admin_service);
+            let admin_state = admin::AdminState::new(
+                admin_key,
+                admin_service,
+                proxy_config.clone(),
+                config.tls_backend,
+            );
             let admin_app = admin::create_admin_router(admin_state);
 
             // 创建 Admin UI 路由

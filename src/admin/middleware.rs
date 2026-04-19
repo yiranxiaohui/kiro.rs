@@ -10,9 +10,12 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 
+use super::oauth::OauthSessions;
 use super::service::AdminService;
 use super::types::AdminErrorResponse;
 use crate::common::auth;
+use crate::http_client::ProxyConfig;
+use crate::model::config::TlsBackend;
 
 /// Admin API 共享状态
 #[derive(Clone)]
@@ -21,13 +24,27 @@ pub struct AdminState {
     pub admin_api_key: String,
     /// Admin 服务
     pub service: Arc<AdminService>,
+    /// OAuth 登录会话注册表
+    pub oauth_sessions: Arc<OauthSessions>,
+    /// 全局代理配置（OAuth 流程默认使用）
+    pub proxy: Option<ProxyConfig>,
+    /// TLS 后端
+    pub tls_backend: TlsBackend,
 }
 
 impl AdminState {
-    pub fn new(admin_api_key: impl Into<String>, service: AdminService) -> Self {
+    pub fn new(
+        admin_api_key: impl Into<String>,
+        service: AdminService,
+        proxy: Option<ProxyConfig>,
+        tls_backend: TlsBackend,
+    ) -> Self {
         Self {
             admin_api_key: admin_api_key.into(),
             service: Arc::new(service),
+            oauth_sessions: Arc::new(OauthSessions::new()),
+            proxy,
+            tls_backend,
         }
     }
 }

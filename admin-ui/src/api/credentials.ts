@@ -8,6 +8,9 @@ import type {
   SetPriorityRequest,
   AddCredentialRequest,
   AddCredentialResponse,
+  StartBuilderIdRequest,
+  StartBuilderIdResponse,
+  PollBuilderIdResponse,
 } from '@/types/api'
 
 // 创建 axios 实例
@@ -102,5 +105,27 @@ export async function getLoadBalancingMode(): Promise<{ mode: 'priority' | 'bala
 // 设置负载均衡模式
 export async function setLoadBalancingMode(mode: 'priority' | 'balanced'): Promise<{ mode: 'priority' | 'balanced' }> {
   const { data } = await api.put<{ mode: 'priority' | 'balanced' }>('/config/load-balancing', { mode })
+  return data
+}
+
+// Builder ID OAuth 设备码登录：发起登录
+export async function startBuilderIdLogin(
+  req: StartBuilderIdRequest
+): Promise<StartBuilderIdResponse> {
+  const { data } = await api.post<StartBuilderIdResponse>('/oauth/builder-id/start', req)
+  return data
+}
+
+// Builder ID OAuth 设备码登录：轮询状态
+export async function pollBuilderIdLogin(
+  loginId: number
+): Promise<PollBuilderIdResponse> {
+  const { data } = await api.post<PollBuilderIdResponse>(`/oauth/builder-id/poll/${loginId}`)
+  return data
+}
+
+// Builder ID OAuth 设备码登录：取消
+export async function cancelBuilderIdLogin(loginId: number): Promise<SuccessResponse> {
+  const { data } = await api.post<SuccessResponse>(`/oauth/builder-id/cancel/${loginId}`)
   return data
 }

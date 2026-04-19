@@ -11,13 +11,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAddCredential } from '@/hooks/use-credentials'
 import { extractErrorMessage } from '@/lib/utils'
+import { BuilderIdLoginPanel } from '@/components/builder-id-login-panel'
 
 interface AddCredentialDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-type AuthMethod = 'social' | 'idc' | 'api_key'
+type AuthMethod = 'social' | 'idc' | 'builder_id_oauth' | 'api_key'
 
 export function AddCredentialDialog({ open, onOpenChange }: AddCredentialDialogProps) {
   const [refreshToken, setRefreshToken] = useState('')
@@ -53,9 +54,13 @@ export function AddCredentialDialog({ open, onOpenChange }: AddCredentialDialogP
   }
 
   const isApiKey = authMethod === 'api_key'
+  const isBuilderIdOAuth = authMethod === 'builder_id_oauth'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Builder ID OAuth 模式不走表单提交
+    if (isBuilderIdOAuth) return
 
     // 验证必填字段
     if (isApiKey) {
@@ -127,12 +132,36 @@ export function AddCredentialDialog({ open, onOpenChange }: AddCredentialDialogP
               >
                 <option value="social">Social</option>
                 <option value="idc">IdC/Builder-ID/IAM</option>
+                <option value="builder_id_oauth">Builder ID 登录（设备码）</option>
                 <option value="api_key">API Key</option>
               </select>
             </div>
 
+            {/* Builder ID OAuth 设备码登录 */}
+            {isBuilderIdOAuth && (
+              <BuilderIdLoginPanel
+                metadata={{
+                  priority: parseInt(priority) || 0,
+                  authRegion: authRegion.trim() || undefined,
+                  apiRegion: apiRegion.trim() || undefined,
+                  machineId: machineId.trim() || undefined,
+                  proxyUrl: proxyUrl.trim() || undefined,
+                  proxyUsername: proxyUsername.trim() || undefined,
+                  proxyPassword: proxyPassword.trim() || undefined,
+                  endpoint: endpoint.trim() || undefined,
+                }}
+                onSuccess={() => {
+                  onOpenChange(false)
+                  resetForm()
+                }}
+                onCancel={() => {
+                  /* 保持对话框打开，允许用户切换其他方式 */
+                }}
+              />
+            )}
+
             {/* Kiro API Key (API Key 模式) */}
-            {isApiKey && (
+            {isApiKey && !isBuilderIdOAuth && (
               <div className="space-y-2">
                 <label htmlFor="kiroApiKey" className="text-sm font-medium">
                   Kiro API Key <span className="text-red-500">*</span>
@@ -149,7 +178,7 @@ export function AddCredentialDialog({ open, onOpenChange }: AddCredentialDialogP
             )}
 
             {/* Refresh Token (OAuth 模式) */}
-            {!isApiKey && (
+            {!isApiKey && !isBuilderIdOAuth && (
               <div className="space-y-2">
                 <label htmlFor="refreshToken" className="text-sm font-medium">
                   Refresh Token <span className="text-red-500">*</span>
@@ -317,11 +346,13 @@ export function AddCredentialDialog({ open, onOpenChange }: AddCredentialDialogP
               onClick={() => onOpenChange(false)}
               disabled={isPending}
             >
-              取消
+              {isBuilderIdOAuth ? '关闭' : '取消'}
             </Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? '添加中...' : '添加'}
-            </Button>
+            {!isBuilderIdOAuth && (
+              <Button type="submit" disabled={isPending}>
+                {isPending ? '添加中...' : '添加'}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

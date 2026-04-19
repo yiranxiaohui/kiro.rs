@@ -87,3 +87,34 @@ export interface AddCredentialResponse {
   credentialId: number
   email?: string
 }
+
+// Builder ID OAuth 设备码登录
+export interface StartBuilderIdRequest {
+  region?: string
+  priority?: number
+  machineId?: string
+  authRegion?: string
+  apiRegion?: string
+  proxyUrl?: string
+  proxyUsername?: string
+  proxyPassword?: string
+  endpoint?: string
+  email?: string
+}
+
+export interface StartBuilderIdResponse {
+  loginId: number
+  userCode: string
+  verificationUri: string
+  verificationUriComplete: string
+  expiresIn: number
+  interval: number
+}
+
+export type PollBuilderIdResponse =
+  | { status: 'pending'; interval: number }
+  | { status: 'slow_down'; interval: number }
+  | { status: 'success'; credentialId: number; email?: string; message: string }
+  | { status: 'expired'; message: string }
+  | { status: 'denied'; message: string }
+  | { status: 'error'; message: string }

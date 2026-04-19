@@ -19,6 +19,7 @@
 mod error;
 mod handlers;
 mod middleware;
+mod oauth;
 mod router;
 mod service;
 pub mod types;

@@ -12,6 +12,7 @@ use super::{
         set_credential_disabled, set_credential_priority, set_load_balancing_mode,
     },
     middleware::{AdminState, admin_auth_middleware},
+    oauth::{cancel_builder_id, poll_builder_id, start_builder_id},
 };
 
 /// 创建 Admin API 路由
@@ -47,6 +48,12 @@ pub fn create_admin_router(state: AdminState) -> Router {
         .route(
             "/config/load-balancing",
             get(get_load_balancing_mode).put(set_load_balancing_mode),
+        )
+        .route("/oauth/builder-id/start", post(start_builder_id))
+        .route("/oauth/builder-id/poll/{login_id}", post(poll_builder_id))
+        .route(
+            "/oauth/builder-id/cancel/{login_id}",
+            post(cancel_builder_id),
         )
         .layer(middleware::from_fn_with_state(
             state.clone(),
