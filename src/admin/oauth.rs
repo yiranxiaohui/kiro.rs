@@ -260,8 +260,10 @@ pub async fn start_builder_id(
     };
 
     // Step 3: 生成 loginId 并存储会话
+    // 限制在 JS Number.MAX_SAFE_INTEGER (2^53 - 1) 以内，避免前端精度丢失
+    const JS_SAFE_MAX: u64 = (1u64 << 53) - 1;
     let login_id = loop {
-        let id = fastrand::u64(1..u64::MAX);
+        let id = fastrand::u64(1..JS_SAFE_MAX);
         if state.oauth_sessions.get(id).is_none() {
             break id;
         }
