@@ -4,7 +4,7 @@
 //! - API: `https://q.{api_region}.amazonaws.com/generateAssistantResponse`
 //! - MCP: `https://q.{api_region}.amazonaws.com/mcp`
 //!
-//! 请求头使用 aws-sdk-js User-Agent 标识。请求体会在根对象上注入 `profileArn`。
+//! User-Agent 采用 Amazon Q CLI (IDC) 样式的静态标识。
 
 use reqwest::RequestBuilder;
 use uuid::Uuid;
@@ -13,6 +13,13 @@ use super::{KiroEndpoint, RequestContext};
 
 /// Kiro IDE 端点名称
 pub const IDE_ENDPOINT_NAME: &str = "ide";
+
+/// Amazon Q CLI (IDC) 样式的 User-Agent
+const USER_AGENT: &str = "aws-sdk-rust/1.3.9 os/macos lang/rust/1.87.0";
+
+/// Amazon Q CLI (IDC) 样式的 x-amz-user-agent
+const X_AMZ_USER_AGENT: &str =
+    "aws-sdk-rust/1.3.9 ua/2.1 api/ssooidc/1.88.0 os/macos lang/rust/1.87.0 m/E app/AmazonQ-For-CLI";
 
 /// Kiro IDE 端点
 pub struct IdeEndpoint;
@@ -28,23 +35,6 @@ impl IdeEndpoint {
 
     fn host(&self, ctx: &RequestContext<'_>) -> String {
         format!("q.{}.amazonaws.com", self.api_region(ctx))
-    }
-
-    fn x_amz_user_agent(&self, ctx: &RequestContext<'_>) -> String {
-        format!(
-            "aws-sdk-js/1.0.34 KiroIDE-{}-{}",
-            ctx.config.kiro_version, ctx.machine_id
-        )
-    }
-
-    fn user_agent(&self, ctx: &RequestContext<'_>) -> String {
-        format!(
-            "aws-sdk-js/1.0.34 ua/2.1 os/{} lang/js md/nodejs#{} api/codewhispererstreaming#1.0.34 m/E KiroIDE-{}-{}",
-            ctx.config.system_version,
-            ctx.config.node_version,
-            ctx.config.kiro_version,
-            ctx.machine_id
-        )
     }
 }
 
@@ -74,8 +64,8 @@ impl KiroEndpoint for IdeEndpoint {
         let mut req = req
             .header("x-amzn-codewhisperer-optout", "true")
             .header("x-amzn-kiro-agent-mode", "vibe")
-            .header("x-amz-user-agent", self.x_amz_user_agent(ctx))
-            .header("user-agent", self.user_agent(ctx))
+            .header("x-amz-user-agent", X_AMZ_USER_AGENT)
+            .header("user-agent", USER_AGENT)
             .header("host", self.host(ctx))
             .header("amz-sdk-invocation-id", Uuid::new_v4().to_string())
             .header("amz-sdk-request", "attempt=1; max=3")
@@ -89,8 +79,8 @@ impl KiroEndpoint for IdeEndpoint {
 
     fn decorate_mcp(&self, req: RequestBuilder, ctx: &RequestContext<'_>) -> RequestBuilder {
         let mut req = req
-            .header("x-amz-user-agent", self.x_amz_user_agent(ctx))
-            .header("user-agent", self.user_agent(ctx))
+            .header("x-amz-user-agent", X_AMZ_USER_AGENT)
+            .header("user-agent", USER_AGENT)
             .header("host", self.host(ctx))
             .header("amz-sdk-invocation-id", Uuid::new_v4().to_string())
             .header("amz-sdk-request", "attempt=1; max=3")
